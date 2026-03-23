@@ -41,5 +41,27 @@ If you need to change the agent or the Azure project, edit the `.env` file:
 *   `AZURE_AGENT_VERSION`: The agent's version (e.g., `2`).
 *   `AZURE_HOST` and `AZURE_IP`: Configuration to bypass network/DNS blocks.
 
+## ☁️ Deployment to Azure App Service
+
+This project is ready for automated deployment to Azure using GitHub Actions.
+
+1.  **Create an Azure Web App**:
+    - Build: Node 18 LTS
+    - OS: Linux
+2.  **Configure GitHub Secrets**:
+    - Go to your repository **Settings > Secrets and variables > Actions**.
+    - Add a new secret named `AZURE_WEBAPP_PUBLISH_PROFILE`.
+    - Paste the content of your Azure [Publish Profile](https://learn.microsoft.com/en-us/azure/app-service/deploy-github-actions?tabs=applevel#configure-the-github-secret).
+3.  **Environment Variables**:
+    - In the Azure Portal, go to **Configuration > Application settings** for your Web App.
+    - Add the following keys (from your `.env`):
+      - `AZURE_PROJECT_ENDPOINT`
+      - `AZURE_AGENT_NAME`
+      - `AZURE_AGENT_VERSION`
+      - `AZURE_HOST` (optional)
+      - `AZURE_IP` (optional)
+4.  **Push to Main**:
+    - Any push to the `main` branch will now trigger an automatic deployment.
+
 ---
-Enjoy chatting with Papales!
+Enjoy chatting with Papales online!
