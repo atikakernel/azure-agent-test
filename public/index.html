@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Chat Papales - Debug Mode</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; padding: 20px; }
+        #chatBox { border: 1px solid #444; height: 300px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #1e1e1e; }
+        .user { color: #4dabf7; margin: 5px 0; }
+        .agent { color: #63e6be; margin: 5px 0; }
+        .error { color: #ff6b6b; font-weight: bold; }
+        input { width: 70%; padding: 10px; background: #333; color: white; border: 1px solid #555; }
+        button { padding: 10px 20px; cursor: pointer; background: #4dabf7; border: none; color: black; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Papales Debug Chat</h1>
+    <div id="chatBox"></div>
+    <input type="text" id="messageInput" placeholder="Escribe algo...">
+    <button id="sendBtn">ENVIAR</button>
+
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const input = document.getElementById('messageInput');
+        const btn = document.getElementById('sendBtn');
+
+        function add(text, type) {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerText = (type === 'user' ? 'Tú: ' : 'Papales: ') + text;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        async function send() {
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            // Bloquear botón y mostrar estado
+            btn.disabled = true;
+            btn.innerText = 'ENVIANDO...';
+
+            add(msg, 'user');
+            input.value = '';
+            
+            console.log("Enviando a /api/chat...", msg);
+            
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: msg })
+                });
+
+                if (!res.ok) throw new Error(`Error en servidor: ${res.status} ${res.statusText}`);
+
+                const data = await res.json();
+                add(data.response, 'agent');
+            } catch (err) {
+                console.error("Error en fetch:", err);
+                add('ERROR: ' + err.message, 'error');
+                // Intentar alertar si es un error crítico
+                if (err.message.includes('Failed to fetch')) {
+                    add('No se pudo contactar con el servidor. ¿Está corriendo?', 'error');
+                }
+            } finally {
+                // Restaurar botón
+                btn.disabled = false;
+                btn.innerText = 'ENVIAR';
+                input.focus();
+            }
+        }
+
+        // Usar addEventListener para mayor robustez
+        document.addEventListener('DOMContentLoaded', () => {
+            btn.addEventListener('click', send);
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') send();
+            });
+            
+            add('Sistema listo. Escribe un mensaje.', 'agent');
+            input.focus();
+        });
+    </script>
+</body>
+</html>
