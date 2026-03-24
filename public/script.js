@@ -100,6 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     clearChatBtn.addEventListener('click', () => {
         chatWindow.innerHTML = '';
-        addMessage('¡Hola! Soy tu asistente de Azure AI. ¿En qué puedo ayudarte hoy?', 'ai');
+        addMessage('¡Hola! Soy tu experto de Azure AI en Fórmula 1. ¿Qué datos o estadísticas de la máxima categoría quieres analizar hoy?', 'ai');
     });
 });
