@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { DefaultAzureCredential } from "@azure/identity";
@@ -36,10 +37,13 @@ if (AZURE_HOST && AZURE_IP) {
   };
 }
 
-// ==========================================
-// Configuración de Azure AI
-// ==========================================
+import { AIProjectClient } from "@azure/ai-projects";
+import { AzureKeyCredential } from "@azure/core-auth";
+
+// ... (existing code)
+
 const endpoint = process.env.AZURE_PROJECT_ENDPOINT;
+const apiKey = process.env.AZURE_AI_API_KEY;
 const agentName = process.env.AZURE_AGENT_NAME;
 const agentVersion = process.env.AZURE_AGENT_VERSION;
 
@@ -47,9 +51,15 @@ let projectClient;
 
 try {
     if (endpoint) {
-        // Inicializamos el cliente SIN llaves, usando la identidad de Azure (Managed Identity)
-        projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
-        console.log("✅ Cliente de Azure AI configurado con éxito usando DefaultAzureCredential.");
+        if (apiKey) {
+            // Si hay una API Key, la usamos (es más fiable si el RBAC falla)
+            projectClient = new AIProjectClient(endpoint.trim(), new AzureKeyCredential(apiKey.trim()));
+            console.log("✅ Cliente de Azure AI configurado usando API Key.");
+        } else {
+            // Si no hay llave, usamos la identidad de Azure
+            projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
+            console.log("✅ Cliente de Azure AI configurado usando DefaultAzureCredential.");
+        }
     } else {
         console.error("⚠️ ERROR: Falta AZURE_PROJECT_ENDPOINT.");
     }
@@ -78,7 +88,19 @@ app.post('/api/chat', async (req, res) => {
         res.json({ response: outputText });
     } catch (error) {
         console.error("Error en Chat:", error.message);
-        res.status(500).json({ error: "Fallo de comunicación con la IA." });
+        
+        // Diagnóstico detallado para el usuario
+        if (error.message.includes("401") || error.message.includes("principal lacks")) {
+            console.error("🔍 DIAGNÓSTICO: Error de permisos (RBAC). La identidad no tiene acceso al agente.");
+            console.error("Asegúrate de que la Managed Identity tenga el rol 'Azure AI Developer'.");
+        } else if (error.message.includes("ENOTFOUND")) {
+            console.error("🔍 DIAGNÓSTICO: Error de red/DNS. No se puede resolver el host de Azure.");
+        }
+        
+        res.status(500).json({ 
+            error: "Fallo de comunicación con la IA.",
+            details: error.message.includes("401") ? "Error de permisos en Azure (RBAC)." : error.message
+        });
     }
 });
 
