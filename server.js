@@ -69,10 +69,33 @@ try {
 app.post('/api/chat', async (req, res) => {
     const userMessage = req.body.message || "Hola";
 
-    // 1. INTENTO OFICIAL (SDK + Identity)
+    // 1. INTENTO CON OPCIÓN 1 DEL USUARIO (OpenAI SDK + Version M??gica)
+    if (apiKey) {
+        try {
+            console.log(`[CHAT] Intentando OPCIÓN 1 (OpenAI SDK + v2024-02-15-preview)...`);
+            
+            const client = new AzureOpenAI({
+                endpoint: endpoint.trim(),
+                apiKey: apiKey.trim(),
+                apiVersion: "2024-02-15-preview",
+                deployment: agentName // Usamos el nombre del agente como deployment
+            });
+
+            const completion = await client.chat.completions.create({
+                messages: [{ role: "user", content: userMessage }],
+                model: "" // El deployment ya especifica el modelo
+            });
+
+            return res.json({ response: completion.choices[0].message.content });
+        } catch (error) {
+            console.error("[CHAT] Falló Opción 1:", error.message);
+        }
+    }
+
+    // 2. FALLBACK AL SDK OFICIAL (Original)
     if (projectClient) {
         try {
-            console.log(`[CHAT] Intento oficial con SDK (MI)...`);
+            console.log(`[CHAT] Fallback al SDK Oficial (MI)...`);
             const openAIClient = projectClient.getOpenAIClient();
             const conversation = await openAIClient.conversations.create({
                 items: [{ type: "message", role: "user", content: userMessage }]
@@ -83,48 +106,11 @@ app.post('/api/chat', async (req, res) => {
             );
             return res.json({ response: response.output_text || "Sin respuesta." });
         } catch (error) {
-            console.error("[CHAT] Falló SDK:", error.message);
-            if (!apiKey) throw error; // Si no hay llave, no hay fallback posible
-        }
-    }
-
-    // 2. FALLBACK REST (Directo con API Key usando el endpoint de OpenAI tradicional)
-    if (apiKey) {
-        try {
-            console.log(`[CHAT] ⚠️ Iniciando FALLBACK REST con API Key y endpoint de OpenAI...`);
-            
-            // Usamos el endpoint de OpenAI tradicional que suele ser m??s estable para REST directo
-            // Construido a partir del nombre del recurso que encontramos: dicastellanosr-1278-resource
-            const openAIEndpoint = "https://dicastellanosr-1278-resource.openai.azure.com";
-            const restUrl = `${openAIEndpoint}/openai/deployments/${agentName}/chat/completions?api-version=2024-02-15-preview`;
-            
-            console.log(`[CHAT] Consultando: ${restUrl}`);
-
-            const restRes = await fetch(restUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api-key': apiKey.trim()
-                },
-                body: JSON.stringify({
-                    messages: [{ role: "user", content: userMessage }]
-                })
-            });
-
-            if (!restRes.ok) {
-                const errData = await restRes.json();
-                console.error("[CHAT] Error en REST:", JSON.stringify(errData));
-                throw new Error(errData.error?.message || `Error HTTP ${restRes.status}`);
-            }
-
-            const data = await restRes.json();
-            return res.json({ response: data.choices[0].message.content });
-        } catch (fallbackError) {
-            console.error("[CHAT] También falló Fallback REST:", fallbackError.message);
-            res.status(500).json({ error: "No se pudo contactar con la IA por ninguna vía.", details: fallbackError.message });
+            console.error("[CHAT] Falló también el SDK oficial:", error.message);
+            res.status(500).json({ error: "Error en todas las vías de comunicación.", details: error.message });
         }
     } else {
-        res.status(500).json({ error: "Servicio no disponible y sin API Key configurada." });
+        res.status(500).json({ error: "Servicio no inicializado." });
     }
 });
 
