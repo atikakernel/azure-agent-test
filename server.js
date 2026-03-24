@@ -49,26 +49,13 @@ const agentName = process.env.AZURE_AGENT_NAME;
 const agentVersion = process.env.AZURE_AGENT_VERSION;
 
 let projectClient;
-let directOpenAIClient;
 
 try {
     if (endpoint) {
-        if (apiKey && apiKey.trim() !== "") {
-            console.log(`[AUTH] Usando API Key (longitud: ${apiKey.length})`);
-            // Usamos el cliente de OpenAI directamente con la versión de API requerida por Foundry Agents
-            directOpenAIClient = new AzureOpenAI({
-                endpoint: endpoint.trim(),
-                apiKey: apiKey.trim(),
-                apiVersion: "2024-12-01-preview", // Versión estable para Agents en Foundry
-                azureADTokenProvider: undefined 
-            });
-            console.log("✅ Cliente Azure OpenAI configurado con API Key (Fallback direct).");
-        }
-        
-        // También inicializamos el Proyect Client para otras funciones si es necesario
-        console.log("[AUTH] Inicializando con Managed Identity (DefaultAzureCredential)...");
+        console.log("[AUTH] Intentando inicialización con Managed Identity (DefaultAzureCredential)...");
+        // Forzamos el uso del Project Client oficial, ya que es el único que soporta la API de Agents completa
         projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
-        console.log("✅ Cliente de Azure AI (Project) configurado.");
+        console.log("✅ Cliente de Azure AI configurado con éxito.");
     } else {
         console.error("⚠️ ERROR: Falta AZURE_PROJECT_ENDPOINT.");
     }
@@ -77,16 +64,14 @@ try {
 }
 
 app.post('/api/chat', async (req, res) => {
-    if (!projectClient && !directOpenAIClient) {
-        return res.status(500).json({ error: "Servicio de IA no disponible en este momento." });
+    if (!projectClient) {
+        return res.status(500).json({ error: "Servicio de IA no disponible (Error init)." });
     }
     try {
         const userMessage = req.body.message || "Hola";
+        const openAIClient = projectClient.getOpenAIClient();
         
-        // Priorizamos el cliente directo (Key) si está disponible, sino el del proyecto (MI)
-        const openAIClient = directOpenAIClient || projectClient.getOpenAIClient();
-        
-        console.log(`[CHAT] Iniciando conversación usando: ${directOpenAIClient ? 'API Key' : 'Managed Identity'}`);
+        console.log(`[CHAT] Procesando mensaje usando Agents API...`);
         
         const conversation = await openAIClient.conversations.create({
             items: [{ type: "message", role: "user", content: userMessage }]
