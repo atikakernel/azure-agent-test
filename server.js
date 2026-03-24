@@ -51,7 +51,10 @@ let projectClient;
 
 try {
     if (endpoint) {
-        if (apiKey) {
+        console.log(`[DEBUG] Endpoint: ${endpoint}`);
+        console.log(`[DEBUG] API Key present: ${apiKey ? 'SÍ (longitud ' + apiKey.length + ')' : 'NO'}`);
+
+        if (apiKey && apiKey.trim() !== "") {
             // Si hay una API Key, la usamos (es más fiable si el RBAC falla)
             projectClient = new AIProjectClient(endpoint.trim(), new AzureKeyCredential(apiKey.trim()));
             console.log("✅ Cliente de Azure AI configurado usando API Key.");
