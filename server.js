@@ -4,6 +4,7 @@ import cors from 'cors';
 import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
 import { AzureKeyCredential } from "@azure/core-auth";
+import { AzureOpenAI } from "openai";
 import dns from 'node:dns';
 
 const app = express();
