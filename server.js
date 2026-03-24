@@ -49,6 +49,7 @@ const agentName = process.env.AZURE_AGENT_NAME;
 const agentVersion = process.env.AZURE_AGENT_VERSION;
 
 let projectClient;
+let directOpenAIClient;
 
 try {
     if (endpoint) {
