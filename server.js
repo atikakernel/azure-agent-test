@@ -101,10 +101,10 @@ app.post('/api/chat', async (req, res) => {
             });
             const completion = await modelClient.chat.completions.create({
                 messages: [
-                    { role: "system", content: "Eres un asistente servicial." },
+                    { role: "system", content: "Eres un experto de élite en Fórmula 1 (F1). Responde siempre con autoridad técnica. Si el usuario pide comparativos o estadísticas, debes incluir al final de tu respuesta un bloque de código JSON con este formato exacto: { \"action\": \"chart\", \"chartType\": \"bar\", \"title\": \"Título\", \"labels\": [\"A\", \"B\"], \"data\": [10, 20] }. No menciones el JSON en tu texto, solo agrégalo al final." },
                     { role: "user", content: userMessage }
                 ],
-                max_tokens: 500
+                max_tokens: 800
             });
             const text = completion.choices[0]?.message?.content;
             console.log(`[CHAT] T2 Respuesta: ${text ? text.substring(0, 30) + "..." : "VAC??O"}`);

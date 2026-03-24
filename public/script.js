@@ -12,7 +12,48 @@ document.addEventListener('DOMContentLoaded', () => {
         bubble.classList.add('bubble');
         
         if (sender === 'ai' && typeof marked !== 'undefined') {
-            bubble.innerHTML = marked.parse(text);
+            // Check for JSON chart data
+            const chartMatch = text.match(/\{[\s\S]*"action"\s*:\s*"chart"[\s\S]*\}/);
+            let cleanText = text;
+            let chartData = null;
+
+            if (chartMatch) {
+                try {
+                    chartData = JSON.parse(chartMatch[0]);
+                    cleanText = text.replace(chartMatch[0], '').trim();
+                } catch (e) {
+                    console.error("Error parsing chat-chart:", e);
+                }
+            }
+
+            bubble.innerHTML = marked.parse(cleanText);
+
+            if (chartData) {
+                const canvas = document.createElement('canvas');
+                canvas.style.marginTop = '15px';
+                canvas.style.maxWidth = '100%';
+                bubble.appendChild(canvas);
+                
+                setTimeout(() => {
+                    new Chart(canvas, {
+                        type: chartData.chartType || 'bar',
+                        data: {
+                            labels: chartData.labels,
+                            datasets: [{
+                                label: chartData.title || 'Estadísticas F1',
+                                data: chartData.data,
+                                backgroundColor: 'rgba(138, 43, 226, 0.6)',
+                                borderColor: 'rgba(138, 43, 226, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' } } }
+                        }
+                    });
+                }, 100);
+            }
         } else {
             bubble.textContent = text;
         }
