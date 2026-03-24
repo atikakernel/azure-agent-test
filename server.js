@@ -69,33 +69,10 @@ try {
 app.post('/api/chat', async (req, res) => {
     const userMessage = req.body.message || "Hola";
 
-    // 1. INTENTO CON OPCIÓN 1 DEL USUARIO (OpenAI SDK + Version M??gica)
-    if (apiKey) {
-        try {
-            console.log(`[CHAT] Intentando OPCIÓN 1 (OpenAI SDK + v2024-02-15-preview)...`);
-            
-            const client = new AzureOpenAI({
-                endpoint: endpoint.trim(),
-                apiKey: apiKey.trim(),
-                apiVersion: "2024-02-15-preview",
-                deployment: agentName // Usamos el nombre del agente como deployment
-            });
-
-            const completion = await client.chat.completions.create({
-                messages: [{ role: "user", content: userMessage }],
-                model: "" // El deployment ya especifica el modelo
-            });
-
-            return res.json({ response: completion.choices[0].message.content });
-        } catch (error) {
-            console.error("[CHAT] Falló Opción 1:", error.message);
-        }
-    }
-
-    // 2. FALLBACK AL SDK OFICIAL (Original)
+    // --- TIER 1: AGENT SDK (Camino oficial) ---
     if (projectClient) {
         try {
-            console.log(`[CHAT] Fallback al SDK Oficial (MI)...`);
+            console.log(`[CHAT] T1: Intentando Agente via SDK (MI)...`);
             const openAIClient = projectClient.getOpenAIClient();
             const conversation = await openAIClient.conversations.create({
                 items: [{ type: "message", role: "user", content: userMessage }]
@@ -104,13 +81,32 @@ app.post('/api/chat', async (req, res) => {
                 { conversation: conversation.id },
                 { body: { agent: { name: agentName, version: agentVersion, type: "agent_reference" } } }
             );
-            return res.json({ response: response.output_text || "Sin respuesta." });
+            return res.json({ response: response.output_text || "Agente sin palabras." });
         } catch (error) {
-            console.error("[CHAT] Falló también el SDK oficial:", error.message);
-            res.status(500).json({ error: "Error en todas las vías de comunicación.", details: error.message });
+            console.error("[CHAT] T1 Fall??:", error.message);
+        }
+    }
+
+    // --- TIER 2: MODELO DIRECTO (Fallback de emergencia con API Key) ---
+    if (apiKey) {
+        try {
+            console.log(`[CHAT] T2: Intentando MODELO DIRECTO (gpt-oss-120b)...`);
+            const modelClient = new AzureOpenAI({
+                endpoint: "https://dicastellanosr-1278-resource.openai.azure.com/",
+                apiKey: apiKey.trim(),
+                apiVersion: "2024-02-15-preview",
+                deployment: "gpt-oss-120b" // Usamos el deployment real del modelo
+            });
+            const completion = await modelClient.chat.completions.create({
+                messages: [{ role: "user", content: userMessage }]
+            });
+            return res.json({ response: completion.choices[0].message.content });
+        } catch (error) {
+            console.error("[CHAT] T2 Fall? también:", error.message);
+            res.status(500).json({ error: "Error total en la comunicación con IA.", details: error.message });
         }
     } else {
-        res.status(500).json({ error: "Servicio no inicializado." });
+        res.status(500).json({ error: "No hay formas de comunicación disponibles (Init/Key missing)." });
     }
 });
 
