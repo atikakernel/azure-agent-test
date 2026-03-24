@@ -52,15 +52,18 @@ let projectClient;
 
 try {
     if (endpoint) {
-        console.log("[AUTH] Intentando inicialización con Managed Identity (DefaultAzureCredential)...");
-        // Forzamos el uso del Project Client oficial, ya que es el único que soporta la API de Agents completa
+        console.log(`[AUTH] Usando endpoint: ${endpoint}`);
+        console.log("[AUTH] Intentando inicialización oficial con Managed Identity...");
+        
+        // El AIProjectClient es obligatorio para usar Conversations y Responses (Stateful Agents)
         projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
-        console.log("✅ Cliente de Azure AI configurado con éxito.");
+        
+        console.log("✅ Cliente de Azure AI (Project) inicializado con éxito.");
     } else {
         console.error("⚠️ ERROR: Falta AZURE_PROJECT_ENDPOINT.");
     }
 } catch (error) {
-    console.error("❌ Error inicializando cliente de Azure AI:", error.message);
+    console.error("❌ Error CRÍTICO inicializando cliente:", error.message);
 }
 
 app.post('/api/chat', async (req, res) => {
