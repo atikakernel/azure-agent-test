@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
-import { AzureOpenAI } from "openai";
+import { AzureKeyCredential } from "@azure/core-auth";
 import dns from 'node:dns';
 
 const app = express();
@@ -51,9 +51,17 @@ let projectClient;
 
 try {
     if (endpoint) {
-        console.log("[AUTH] Iniciando con Managed Identity (DefaultAzureCredential)...");
-        projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
-        console.log("✅ Cliente de Azure AI configurado con éxito.");
+        // Intentamos primero con Managed Identity (Preferido)
+        // Pero si hay una API Key, la dejamos preparada como fallback si el SDK falla
+        if (apiKey && apiKey.trim() !== "") {
+            console.log("[AUTH] Configurando con API Key Fallback...");
+            projectClient = new AIProjectClient(endpoint.trim(), new AzureKeyCredential(apiKey.trim()));
+            console.log("✅ Cliente de Azure AI configurado con API Key.");
+        } else {
+            console.log("[AUTH] Iniciando con Managed Identity (DefaultAzureCredential)...");
+            projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
+            console.log("✅ Cliente de Azure AI configurado con Managed Identity.");
+        }
     } else {
         console.error("⚠️ ERROR: Falta AZURE_PROJECT_ENDPOINT.");
     }
