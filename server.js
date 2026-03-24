@@ -72,7 +72,7 @@ app.post('/api/chat', async (req, res) => {
     // --- TIER 1: AGENT SDK (Camino oficial) ---
     if (projectClient) {
         try {
-            console.log(`[CHAT] T1: Intentando Agente via SDK (MI)...`);
+            console.log(`[CHAT] T1: Agente SDK (MI)...`);
             const openAIClient = projectClient.getOpenAIClient();
             const conversation = await openAIClient.conversations.create({
                 items: [{ type: "message", role: "user", content: userMessage }]
@@ -81,33 +81,41 @@ app.post('/api/chat', async (req, res) => {
                 { conversation: conversation.id },
                 { body: { agent: { name: agentName, version: agentVersion, type: "agent_reference" } } }
             );
-            return res.json({ response: response.output_text || "Agente sin palabras." });
+            const text = response.output_text;
+            if (text) return res.json({ response: text });
+            console.log("[CHAT] T1 devolvi?? vac??o, saltando a T2...");
         } catch (error) {
             console.error("[CHAT] T1 Fall??:", error.message);
         }
     }
 
-    // --- TIER 2: MODELO DIRECTO (Fallback de emergencia con API Key) ---
+    // --- TIER 2: MODELO SDK (Fallback con API Key) ---
     if (apiKey) {
         try {
-            console.log(`[CHAT] T2: Intentando MODELO DIRECTO (gpt-oss-120b)...`);
+            console.log(`[CHAT] T2: Modelo SDK (gpt-oss-120b)...`);
             const modelClient = new AzureOpenAI({
                 endpoint: "https://dicastellanosr-1278-resource.openai.azure.com/",
                 apiKey: apiKey.trim(),
                 apiVersion: "2024-02-15-preview",
-                deployment: "gpt-oss-120b" // Usamos el deployment real del modelo
+                deployment: "gpt-oss-120b"
             });
             const completion = await modelClient.chat.completions.create({
-                messages: [{ role: "user", content: userMessage }]
+                messages: [
+                    { role: "system", content: "Eres un asistente servicial." },
+                    { role: "user", content: userMessage }
+                ],
+                max_tokens: 500
             });
-            return res.json({ response: completion.choices[0].message.content });
+            const text = completion.choices[0]?.message?.content;
+            console.log(`[CHAT] T2 Respuesta: ${text ? text.substring(0, 30) + "..." : "VAC??O"}`);
+            if (text) return res.json({ response: text });
         } catch (error) {
-            console.error("[CHAT] T2 Fall? también:", error.message);
-            res.status(500).json({ error: "Error total en la comunicación con IA.", details: error.message });
+            console.error("[CHAT] T2 Fall??:", error.message);
         }
-    } else {
-        res.status(500).json({ error: "No hay formas de comunicación disponibles (Init/Key missing)." });
     }
+
+    // Si todo falla
+    res.status(500).json({ error: "Error de conexi??n final.", details: "No se obtuvo respuesta de ning??n nivel (Agente/Modelo)." });
 });
 
 const PORT = process.env.PORT || 8080;
