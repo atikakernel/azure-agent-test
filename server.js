@@ -51,17 +51,22 @@ let projectClient;
 
 try {
     if (endpoint) {
-        // Intentamos primero con Managed Identity (Preferido)
-        // Pero si hay una API Key, la dejamos preparada como fallback si el SDK falla
         if (apiKey && apiKey.trim() !== "") {
-            console.log("[AUTH] Configurando con API Key Fallback...");
-            projectClient = new AIProjectClient(endpoint.trim(), new AzureKeyCredential(apiKey.trim()));
-            console.log("✅ Cliente de Azure AI configurado con API Key.");
-        } else {
-            console.log("[AUTH] Iniciando con Managed Identity (DefaultAzureCredential)...");
-            projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
-            console.log("✅ Cliente de Azure AI configurado con Managed Identity.");
+            console.log(`[AUTH] Usando API Key (longitud: ${apiKey.length})`);
+            // Usamos el cliente de OpenAI directamente con la versión de API requerida por Foundry Agents
+            directOpenAIClient = new AzureOpenAI({
+                endpoint: endpoint.trim(),
+                apiKey: apiKey.trim(),
+                apiVersion: "2024-12-01-preview", // Versión estable para Agents en Foundry
+                azureADTokenProvider: undefined 
+            });
+            console.log("✅ Cliente Azure OpenAI configurado con API Key (Fallback direct).");
         }
+        
+        // También inicializamos el Proyect Client para otras funciones si es necesario
+        console.log("[AUTH] Inicializando con Managed Identity (DefaultAzureCredential)...");
+        projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
+        console.log("✅ Cliente de Azure AI (Project) configurado.");
     } else {
         console.error("⚠️ ERROR: Falta AZURE_PROJECT_ENDPOINT.");
     }
@@ -70,12 +75,16 @@ try {
 }
 
 app.post('/api/chat', async (req, res) => {
-    if (!projectClient) {
+    if (!projectClient && !directOpenAIClient) {
         return res.status(500).json({ error: "Servicio de IA no disponible en este momento." });
     }
     try {
         const userMessage = req.body.message || "Hola";
-        const openAIClient = projectClient.getOpenAIClient();
+        
+        // Priorizamos el cliente directo (Key) si está disponible, sino el del proyecto (MI)
+        const openAIClient = directOpenAIClient || projectClient.getOpenAIClient();
+        
+        console.log(`[CHAT] Iniciando conversación usando: ${directOpenAIClient ? 'API Key' : 'Managed Identity'}`);
         
         const conversation = await openAIClient.conversations.create({
             items: [{ type: "message", role: "user", content: userMessage }]
