@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
-import { AzureKeyCredential } from "@azure/core-auth";
+import { AzureOpenAI } from "openai";
 import dns from 'node:dns';
 
 const app = express();
@@ -48,35 +48,40 @@ const agentName = process.env.AZURE_AGENT_NAME;
 const agentVersion = process.env.AZURE_AGENT_VERSION;
 
 let projectClient;
+let directOpenAIClient;
 
 try {
     if (endpoint) {
-        console.log(`[DEBUG] Endpoint: ${endpoint}`);
-        console.log(`[DEBUG] API Key present: ${apiKey ? 'SÍ (longitud ' + apiKey.length + ')' : 'NO'}`);
-
         if (apiKey && apiKey.trim() !== "") {
-            // Si hay una API Key, la usamos (es más fiable si el RBAC falla)
-            projectClient = new AIProjectClient(endpoint.trim(), new AzureKeyCredential(apiKey.trim()));
-            console.log("✅ Cliente de Azure AI configurado usando API Key.");
+            console.log(`[AUTH] Usando API Key (longitud: ${apiKey.length})`);
+            // Usamos el cliente de OpenAI directamente para evitar problemas de cabeceras del AIProjectClient
+            directOpenAIClient = new AzureOpenAI({
+                endpoint: endpoint.trim(),
+                apiKey: apiKey.trim(),
+                apiVersion: "2024-05-01-preview"
+            });
+            console.log("✅ Cliente Azure OpenAI configurado directamente con API Key.");
         } else {
-            // Si no hay llave, usamos la identidad de Azure
+            console.log("[AUTH] Usando Managed Identity (DefaultAzureCredential)");
             projectClient = new AIProjectClient(endpoint.trim(), new DefaultAzureCredential());
-            console.log("✅ Cliente de Azure AI configurado usando DefaultAzureCredential.");
+            console.log("✅ Cliente AIProjectClient configurado con Managed Identity.");
         }
     } else {
         console.error("⚠️ ERROR: Falta AZURE_PROJECT_ENDPOINT.");
     }
 } catch (error) {
-    console.error("❌ Error inicializando cliente de Azure AI:", error.message);
+    console.error("❌ Error inicializando cliente:", error.message);
 }
 
 app.post('/api/chat', async (req, res) => {
-    if (!projectClient) {
+    if (!projectClient && !directOpenAIClient) {
         return res.status(500).json({ error: "Servicio de IA no disponible en este momento." });
     }
     try {
         const userMessage = req.body.message || "Hola";
-        const openAIClient = projectClient.getOpenAIClient();
+        
+        // Obtenemos el cliente de OpenAI (ya sea directamente o a través del proyecto)
+        const openAIClient = directOpenAIClient || projectClient.getOpenAIClient();
         
         const conversation = await openAIClient.conversations.create({
             items: [{ type: "message", role: "user", content: userMessage }]
