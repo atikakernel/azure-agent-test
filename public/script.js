@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const data = await response.json();
-            addMessage(data.reply, 'ai');
+            addMessage(data.reply || data.response || "No hubo respuesta.", 'ai');
         } catch (error) {
             console.error('Error:', error);
             addMessage('Lo siento, hubo un error al procesar tu mensaje.', 'ai');

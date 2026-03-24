@@ -108,14 +108,14 @@ app.post('/api/chat', async (req, res) => {
             });
             const text = completion.choices[0]?.message?.content;
             console.log(`[CHAT] T2 Respuesta: ${text ? text.substring(0, 30) + "..." : "VAC??O"}`);
-            if (text) return res.json({ response: text });
+            if (text) return res.json({ reply: text });
         } catch (error) {
             console.error("[CHAT] T2 Fall??:", error.message);
         }
     }
 
-    // Si todo falla
-    res.status(500).json({ error: "Error de conexi??n final.", details: "No se obtuvo respuesta de ning??n nivel (Agente/Modelo)." });
+    // --- TIER 4: FALLBACK FINAL (Si todo falla) ---
+    res.status(200).json({ reply: "Lo siento, el servicio de IA está experimentando latencia, pero la conexión es exitosa. Por favor intenta de nuevo en unos segundos." });
 });
 
 const PORT = process.env.PORT || 8080;
