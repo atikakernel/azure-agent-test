@@ -67,41 +67,63 @@ try {
 }
 
 app.post('/api/chat', async (req, res) => {
-    if (!projectClient) {
-        return res.status(500).json({ error: "Servicio de IA no disponible (Error init)." });
-    }
-    try {
-        const userMessage = req.body.message || "Hola";
-        const openAIClient = projectClient.getOpenAIClient();
-        
-        console.log(`[CHAT] Procesando mensaje usando Agents API...`);
-        
-        const conversation = await openAIClient.conversations.create({
-            items: [{ type: "message", role: "user", content: userMessage }]
-        });
-        
-        const response = await openAIClient.responses.create(
-            { conversation: conversation.id },
-            { body: { agent: { name: agentName, version: agentVersion, type: "agent_reference" } } }
-        );
-        
-        const outputText = response.output_text || "Sin respuesta del agente.";
-        res.json({ response: outputText });
-    } catch (error) {
-        console.error("Error en Chat:", error.message);
-        
-        // Diagnóstico detallado para el usuario
-        if (error.message.includes("401") || error.message.includes("principal lacks")) {
-            console.error("🔍 DIAGNÓSTICO: Error de permisos (RBAC). La identidad no tiene acceso al agente.");
-            console.error("Asegúrate de que la Managed Identity tenga el rol 'Azure AI Developer'.");
-        } else if (error.message.includes("ENOTFOUND")) {
-            console.error("🔍 DIAGNÓSTICO: Error de red/DNS. No se puede resolver el host de Azure.");
+    const userMessage = req.body.message || "Hola";
+
+    // 1. INTENTO OFICIAL (SDK + Identity)
+    if (projectClient) {
+        try {
+            console.log(`[CHAT] Intento oficial con SDK (MI)...`);
+            const openAIClient = projectClient.getOpenAIClient();
+            const conversation = await openAIClient.conversations.create({
+                items: [{ type: "message", role: "user", content: userMessage }]
+            });
+            const response = await openAIClient.responses.create(
+                { conversation: conversation.id },
+                { body: { agent: { name: agentName, version: agentVersion, type: "agent_reference" } } }
+            );
+            return res.json({ response: response.output_text || "Sin respuesta." });
+        } catch (error) {
+            console.error("[CHAT] Falló SDK:", error.message);
+            if (!apiKey) throw error; // Si no hay llave, no hay fallback posible
         }
-        
-        res.status(500).json({ 
-            error: "Fallo de comunicación con la IA.",
-            details: error.message.includes("401") ? "Error de permisos en Azure (RBAC)." : error.message
-        });
+    }
+
+    // 2. FALLBACK REST (Directo con API Key)
+    if (apiKey) {
+        try {
+            console.log(`[CHAT] ⚠️ Iniciando FALLBACK REST con API Key...`);
+            
+            // Construimos la URL manual para el servicio de Agents
+            // Omitimos la parte de 'conversations' y vamos directo a un chat completion si el endpoint lo permite
+            // O intentamos recrear el flujo de Agents si tenemos el ID. 
+            // Como no tenemos el ID del agente, intentaremos usar el endpoint de OpenAI tradicional del proyecto.
+            
+            const restUrl = `${endpoint.trim()}/openai/deployments/${agentName}/chat/completions?api-version=2024-10-21-preview`;
+            
+            const restRes = await fetch(restUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api-key': apiKey.trim()
+                },
+                body: JSON.stringify({
+                    messages: [{ role: "user", content: userMessage }]
+                })
+            });
+
+            if (!restRes.ok) {
+                const errData = await restRes.json();
+                throw new Error(errData.error?.message || `Error HTTP ${restRes.status}`);
+            }
+
+            const data = await restRes.json();
+            return res.json({ response: data.choices[0].message.content });
+        } catch (fallbackError) {
+            console.error("[CHAT] También falló Fallback REST:", fallbackError.message);
+            res.status(500).json({ error: "No se pudo contactar con la IA por ninguna vía.", details: fallbackError.message });
+        }
+    } else {
+        res.status(500).json({ error: "Servicio no disponible y sin API Key configurada." });
     }
 });
 
