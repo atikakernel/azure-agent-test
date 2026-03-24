@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { DefaultAzureCredential } from "@azure/identity";
 import { AIProjectClient } from "@azure/ai-projects";
+import { AzureKeyCredential } from "@azure/core-auth";
 import dns from 'node:dns';
 
 const app = express();
@@ -37,10 +38,9 @@ if (AZURE_HOST && AZURE_IP) {
   };
 }
 
-import { AIProjectClient } from "@azure/ai-projects";
-import { AzureKeyCredential } from "@azure/core-auth";
-
-// ... (existing code)
+// ==========================================
+// CONFIGURACIÓN DE AZURE AI
+// ==========================================
 
 const endpoint = process.env.AZURE_PROJECT_ENDPOINT;
 const apiKey = process.env.AZURE_AI_API_KEY;
