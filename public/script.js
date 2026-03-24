@@ -10,7 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const bubble = document.createElement('div');
         bubble.classList.add('bubble');
-        bubble.textContent = text;
+        
+        if (sender === 'ai' && typeof marked !== 'undefined') {
+            bubble.innerHTML = marked.parse(text);
+        } else {
+            bubble.textContent = text;
+        }
         
         messageDiv.appendChild(bubble);
         chatWindow.appendChild(messageDiv);
