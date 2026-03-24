@@ -88,18 +88,18 @@ app.post('/api/chat', async (req, res) => {
         }
     }
 
-    // 2. FALLBACK REST (Directo con API Key)
+    // 2. FALLBACK REST (Directo con API Key usando el endpoint de OpenAI tradicional)
     if (apiKey) {
         try {
-            console.log(`[CHAT] ⚠️ Iniciando FALLBACK REST con API Key...`);
+            console.log(`[CHAT] ⚠️ Iniciando FALLBACK REST con API Key y endpoint de OpenAI...`);
             
-            // Construimos la URL manual para el servicio de Agents
-            // Omitimos la parte de 'conversations' y vamos directo a un chat completion si el endpoint lo permite
-            // O intentamos recrear el flujo de Agents si tenemos el ID. 
-            // Como no tenemos el ID del agente, intentaremos usar el endpoint de OpenAI tradicional del proyecto.
+            // Usamos el endpoint de OpenAI tradicional que suele ser m??s estable para REST directo
+            // Construido a partir del nombre del recurso que encontramos: dicastellanosr-1278-resource
+            const openAIEndpoint = "https://dicastellanosr-1278-resource.openai.azure.com";
+            const restUrl = `${openAIEndpoint}/openai/deployments/${agentName}/chat/completions?api-version=2024-02-15-preview`;
             
-            const restUrl = `${endpoint.trim()}/openai/deployments/${agentName}/chat/completions?api-version=2024-10-21-preview`;
-            
+            console.log(`[CHAT] Consultando: ${restUrl}`);
+
             const restRes = await fetch(restUrl, {
                 method: 'POST',
                 headers: {
@@ -113,6 +113,7 @@ app.post('/api/chat', async (req, res) => {
 
             if (!restRes.ok) {
                 const errData = await restRes.json();
+                console.error("[CHAT] Error en REST:", JSON.stringify(errData));
                 throw new Error(errData.error?.message || `Error HTTP ${restRes.status}`);
             }
 
