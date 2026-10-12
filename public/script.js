@@ -4,6 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatWindow = document.getElementById('chat-window');
     const clearChatBtn = document.getElementById('clear-chat');
 
+    // Stable per-browser chat session so the backend can keep multi-turn context.
+    const SESSION_KEY = 'papales-session-id';
+    const newSessionId = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : `session-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    let sessionId = localStorage.getItem(SESSION_KEY);
+    if (!sessionId) {
+        sessionId = newSessionId();
+        localStorage.setItem(SESSION_KEY, sessionId);
+    }
+
     const addMessage = (text, sender) => {
         const messageDiv = document.createElement('div');
         messageDiv.classList.add('message', sender, 'animate-in');
@@ -81,7 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message }),
+                body: JSON.stringify({ message, sessionId }),
             });
 
             if (!response.ok) {
@@ -99,6 +108,14 @@ document.addEventListener('DOMContentLoaded', () => {
     chatForm.addEventListener('submit', handleChat);
 
     clearChatBtn.addEventListener('click', () => {
+        // Rotate the session id and drop the server-side context.
+        fetch('/api/chat/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+        }).catch(() => {});
+        sessionId = newSessionId();
+        localStorage.setItem(SESSION_KEY, sessionId);
         chatWindow.innerHTML = '';
         addMessage('¡Hola! Soy tu experto de Azure AI en Fórmula 1. ¿Qué datos o estadísticas de la máxima categoría quieres analizar hoy?', 'ai');
     });

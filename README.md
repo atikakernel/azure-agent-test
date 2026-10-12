@@ -65,3 +65,22 @@ This project is ready for automated deployment to Azure using GitHub Actions.
 
 ---
 Enjoy chatting with Papales online!
+
+---
+
+## Multi-turn chat sessions
+
+The chat keeps context across messages. The browser generates a stable
+`sessionId` (localStorage) and sends it with every `POST /api/chat`; the
+server reuses the Azure conversation for that session (Tier 1) and keeps a
+capped message history for the model fallback (Tier 2), instead of starting
+a new conversation per message.
+
+- `GET /api/health` — status plus active session count.
+- `POST /api/chat/reset` with `{ "sessionId": "..." }` — drops a session's
+  context (the clear-chat button does this and rotates the id).
+- Sessions expire after 30 minutes and the store is LRU-capped
+  (`lib/sessions.js`). Run its tests with `npm test`.
+
+To try it locally: `npm install`, then `node server.js`, and open
+`http://localhost:8080` in your browser.
